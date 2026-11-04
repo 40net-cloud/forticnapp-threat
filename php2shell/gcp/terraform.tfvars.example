@@ -1,0 +1,36 @@
+# Copy to terraform.tfvars and adjust. Used by main.tf
+
+# --- Required ---
+prefix     = "php2shell"          # Lowercase letters, digits and hyphens
+project_id = "my-gcp-project-id"  # Google Cloud project ID
+
+# --- General ---
+region              = "europe-west1"
+zone                = "europe-west1-b"
+username            = "admin"
+ssh_public_key_file = "~/.ssh/id_rsa.pub"
+
+# Restrict SSH to your own public IP, e.g. "203.0.113.10/32"
+admin_source_cidr = "203.0.113.10/32"
+
+# --- OS image: "ubuntu-26.04" (PHP 8.5) or "debian-13" (PHP 8.4); see os_images in main.tf ---
+os_image = "debian-13"
+
+# --- PHP / Apache (Apache is always installed) ---
+# php_version = "8.4.26-1~deb13u1"             # Optional: override the selected image's default php_version
+php_snapshot_timestamp = "20261010T000000Z"    # Debian images only
+
+# --- FortiCNAPP agent ---
+install_forticnapp_agent = false
+# Required when install_forticnapp_agent = true (letters, digits, '-' and '_' only).
+# Prefer passing it via the environment: export TF_VAR_forticnapp_access_token=<token>
+# forticnapp_access_token = ""
+forticnapp_server_url = "https://api.fra.lacework.net"   # Empty string = auto-discover
+
+# --- Network and instance ---
+subnet       = "172.16.140.0/25"
+machine_type = "e2-small"
+
+labels = {
+  project = "php-vm"
+}

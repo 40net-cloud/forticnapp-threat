@@ -1,0 +1,8 @@
+[project]
+name = "forticnapp-scripts"
+version = "0.1.0"
+description = "Helper scripts for querying FortiCNAPP (Lacework) data"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+]

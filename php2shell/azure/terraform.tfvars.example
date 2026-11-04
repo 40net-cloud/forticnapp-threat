@@ -1,0 +1,60 @@
+# Copy to terraform.tfvars and adjust. Used by main.tf
+
+# --- Required ---
+prefix              = "php2shell"                              # Name prefix added to each resource
+subscription_id     = "00000000-0000-0000-0000-000000000000"   # Azure subscription ID
+ssh_public_key_file = "~/.ssh/id_rsa.pub"
+
+# --- OS image: select which entry of os_images to deploy ---
+# Default list: "ubuntu-26.04" (PHP 8.5) or "debian-13" (PHP 8.4)
+os_image = "debian-13"
+
+# Optional: override or extend the list of selectable images (replaces the built-in list entirely).
+# os_images = [
+#   {
+#     name        = "ubuntu-26.04"
+#     family      = "ubuntu"             # "ubuntu" or "debian"
+#     publisher   = "Canonical"
+#     offer       = "ubuntu-26_04-lts"
+#     sku         = "server"
+#     php_series  = "8.5"
+#     php_version = "8.5.4-0ubuntu1.5"   # Ubuntu: must be 8.5.11 or below
+#   },
+#   {
+#     name        = "debian-13"
+#     family      = "debian"
+#     publisher   = "debian"
+#     offer       = "debian-13"
+#     sku         = "13-gen2"
+#     php_series  = "8.4"
+#     php_version = "8.4.26-1~deb13u1"
+#   },
+# ]
+
+# --- General ---
+location = "westeurope"
+username = "azureuser"
+
+# Restrict SSH to your own public IP, e.g. "203.0.113.10/32"
+admin_source_cidr = "203.0.113.10/32"
+
+# --- PHP / Apache ---
+install_apache = true
+# php_version = "8.4.26-1~deb13u1"   # Optional: override the selected image's default php_version
+php_snapshot_timestamp = "20261010T000000Z"   # Debian images only
+
+# --- FortiCNAPP agent ---
+install_forticnapp_agent = false
+# Required when install_forticnapp_agent = true (letters, digits, '-' and '_' only).
+# Prefer passing it via the environment: export TF_VAR_forticnapp_access_token=...
+# forticnapp_access_token = "YOUR_AGENT_ACCESS_TOKEN"
+forticnapp_server_url = "https://api.fra.lacework.net"   # Empty string = auto-discover
+
+# --- Network and VM ---
+vnet    = "172.16.140.0/24"
+subnet  = "172.16.140.0/25"
+vm_size = "Standard_B2s"
+
+tags = {
+  project = "php-vm"
+}

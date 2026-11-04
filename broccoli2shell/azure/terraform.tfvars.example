@@ -1,0 +1,39 @@
+# Copy to terraform.tfvars and adjust. Used by main.tf
+
+# --- Required ---
+prefix          = "node2shell"                              # Name prefix added to each resource
+subscription_id = "00000000-0000-0000-0000-000000000000"   # Azure subscription ID
+
+# --- General ---
+location            = "westeurope"
+username            = "azureuser"
+ssh_public_key_file = "~/.ssh/id_rsa.pub"
+
+# Restrict SSH to your own public IP, e.g. "203.0.113.10/32"
+admin_source_cidr = "203.0.113.10/32"
+
+# --- OS image: "ubuntu-26.04" (Node 22, Brotli 1.2.0-3build1) or "debian-13" (Node 20, Brotli 1.1.0-2+b7); see os_images ---
+os_image = "debian-13"
+
+# --- Node.js / Brotli (affected builds, verified against trixie main and the Debian tracker on 2026-11-02) ---
+# Optional overrides of the selected image's defaults (leave commented to use them)
+# node_version            = "20.19.2+dfsg-1+deb13u2"
+# brotli_version          = "1.1.0-2+b7"
+# node_snapshot_timestamp = "20261101T000000Z"
+demo_port               = 3000   # Reachable from admin_source_cidr only
+
+# --- FortiCNAPP agent ---
+install_forticnapp_agent = false
+# Required when install_forticnapp_agent = true (letters, digits, '-' and '_' only).
+# Prefer passing it via the environment: export TF_VAR_forticnapp_access_token=...
+# forticnapp_access_token = "YOUR_AGENT_ACCESS_TOKEN"
+forticnapp_server_url = "https://api.fra.lacework.net"   # Empty string = auto-discover
+
+# --- Network and VM ---
+vnet    = "172.16.140.0/24"
+subnet  = "172.16.140.0/25"
+vm_size = "Standard_B2s"
+
+tags = {
+  project = "node-vm"
+}
