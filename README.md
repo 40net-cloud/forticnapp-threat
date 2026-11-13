@@ -12,6 +12,7 @@ Each scenario is available as a separate Terraform template per cloud. All of th
 |----------|---------------|:---:|:-----:|:------------:|
 | [php2shell](php2shell) | PHP2Shell, CVE-2026-109618 / CVE-2026-109619 | YES | YES | YES |
 | [broccoli2shell](broccoli2shell) | Node2Shell (Brotli), CVE-2026-111497 | YES | YES | YES |
+| [cve-2026-119618](cve-2026-119618) | Apache HTTP/2 RCE (mod_http2), CVE-2026-119618 | YES | YES | YES |
 
 ### Vulnerabilities
 
@@ -22,6 +23,10 @@ Each scenario is available as a separate Terraform template per cloud. All of th
 - **[broccoli2shell](broccoli2shell)**
 
   A VM with Node.js and Brotli (`libbrotli1`, `brotli`) held at affected builds, plus a small systemd service (`node2shell`) that Brotli-decompresses request bodies on `demo_port` (default 3000). Access to SSH and the demo port is limited to `admin_source_cidr`. A build report is written to `/var/log/node-report.txt`.
+
+- **[cve-2026-119618](cve-2026-119618)**
+
+  A VM with Apache HTTP Server held at a build affected by CVE-2026-119618 (race condition in `mod_http2`'s `assign_headers()`, remote code execution; affects 2.4.55 through 2.4.70, fixed in 2.4.71). The version is pinned per OS image (Apache 2.4.69 on Debian 13, Apache 2.4.66 on Ubuntu 26.04) and can be overridden with `apache_version`; the pinned build is fetched from a pre-fix snapshot of the distribution archive (`snapshot.debian.org/archive/debian-security` on Debian, `snapshot.ubuntu.com` on Ubuntu), because both distributions shipped fixes on 2026-11-12 (DSA-6620-1 and USN-9090-1). `mod_http2` is enabled and the default site serves cleartext HTTP/2 (`h2c`) on port 80, so demo requests actually traverse the vulnerable module: `curl --http2-prior-knowledge -I http://<host>/`. A small `index.html` reports the running version. A build report is written to `/var/log/apache-report.txt`.
 
 ### Select your cloud
 
