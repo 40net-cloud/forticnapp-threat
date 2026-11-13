@@ -53,13 +53,13 @@ variable "admin_source_cidr" {
 variable "os_images" {
   description = "Available OS images (AMI lookups). Pick one with os_image. Add entries to support more images."
   type = list(object({
-    name         = string # key used in os_image
-    family       = string # "ubuntu" or "debian"
-    ami_owner    = string # AWS account that publishes the AMI
-    ami_name     = string # AMI name pattern; %s is replaced by amd64 or arm64
-    ssh_user     = string # default login user of the AMI
-    php_series   = string # PHP major.minor shipped by this image, e.g. "8.5"
-    php_version  = string # default exact package version to pin for this image
+    name        = string # key used in os_image
+    family      = string # "ubuntu" or "debian"
+    ami_owner   = string # AWS account that publishes the AMI
+    ami_name    = string # AMI name pattern; %s is replaced by amd64 or arm64
+    ssh_user    = string # default login user of the AMI
+    php_series  = string # PHP major.minor shipped by this image, e.g. "8.5"
+    php_version = string # default exact package version to pin for this image
   }))
   default = [
     {
@@ -453,9 +453,8 @@ resource "aws_instance" "lnxvm" {
     encrypted   = true
   }
 
-  network_interface {
+  primary_network_interface {
     network_interface_id = aws_network_interface.lnxnic.id
-    device_index         = 0
   }
 
   tags = {

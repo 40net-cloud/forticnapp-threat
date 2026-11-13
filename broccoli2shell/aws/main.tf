@@ -528,9 +528,8 @@ resource "aws_instance" "lnxvm" {
     encrypted   = true
   }
 
-  network_interface {
+  primary_network_interface {
     network_interface_id = aws_network_interface.lnxnic.id
-    device_index         = 0
   }
 
   tags = {
