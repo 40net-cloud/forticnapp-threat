@@ -1,0 +1,118 @@
+name: Deploy vulnerable-vm (AWS)
+
+# Manual only: this deploys intentionally vulnerable infrastructure.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to do"
+        type: choice
+        options: [plan, apply, destroy]
+        default: plan
+      os_image:
+        description: "OS image"
+        type: choice
+        options: [debian-13, ubuntu-26.04]
+        default: debian-13
+      admin_source_cidr:
+        description: "CIDR allowed to reach SSH and the demo port (restrict to your own IP, e.g. 203.0.113.10/32)"
+        type: string
+        default: "0.0.0.0/0"
+      state_backend:
+        description: "Terraform state location (local state is lost after the run)"
+        type: choice
+        options: [s3, local]
+        default: s3
+      install_forticnapp_agent:
+        description: "Install the FortiCNAPP agent (needs FORTICNAPP_ACCESS_TOKEN secret)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Never run two deployments against the same state at once.
+concurrency:
+  group: vulnerable-vm-aws
+  cancel-in-progress: false
+
+env:
+  TF_DIR: vulnerable-vm/aws
+  TF_IN_AUTOMATION: "true"
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+  TF_VAR_prefix: multi-cve
+  TF_VAR_region: ${{ secrets.AWS_REGION }}
+  TF_VAR_key_name: ${{ secrets.AWS_KEY_NAME }}
+  TF_VAR_os_image: ${{ inputs.os_image }}
+  TF_VAR_admin_source_cidr: ${{ inputs.admin_source_cidr }}
+  TF_VAR_install_forticnapp_agent: ${{ inputs.install_forticnapp_agent }}
+  TF_VAR_forticnapp_access_token: ${{ secrets.FORTICNAPP_ACCESS_TOKEN }}
+  # State bucket is derived from the account and region; create it with scripts/create-tfstate-bucket.sh
+  STATE_BACKEND: ${{ inputs.state_backend }}
+  STATE_BUCKET: multi-cve-tfstate-${{ secrets.AWS_ACCOUNT_ID }}-${{ secrets.AWS_REGION }}
+
+jobs:
+  terraform:
+    name: Terraform ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    # Optional: create a "aws-vulnerable-vm" environment with required reviewers to gate apply/destroy.
+    environment: aws-vulnerable-vm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify AWS account
+        run: |
+          actual=$(aws sts get-caller-identity --query Account --output text)
+          if [ "$actual" != "${{ secrets.AWS_ACCOUNT_ID }}" ]; then
+            echo "::error::Credentials belong to a different account than AWS_ACCOUNT_ID"
+            exit 1
+          fi
+
+      - name: Check remote state bucket
+        if: inputs.state_backend == 's3'
+        run: |
+          aws s3api head-bucket --bucket "$STATE_BUCKET" || {
+            echo "::error::State bucket $STATE_BUCKET not found. Create it first with scripts/create-tfstate-bucket.sh"
+            exit 1
+          }
+
+      - name: Configure state backend
+        run: |
+          if [ "$STATE_BACKEND" = "local" ]; then
+            echo "::warning::Local state is discarded when the runner ends, so destroy cannot find what was deployed."
+          fi
+          scripts/configure-state-backend.sh "$TF_DIR"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.10"
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        if: inputs.action != 'destroy'
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform plan -input=false -no-color -out=plan.tfplan
+
+      - name: Terraform apply
+        if: inputs.action == 'apply'
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform apply -input=false -auto-approve plan.tfplan
+
+      - name: Terraform destroy
+        if: inputs.action == 'destroy'
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform destroy -input=false -auto-approve -no-color
+
+      - name: Show outputs
+        if: inputs.action == 'apply'
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform output -no-color

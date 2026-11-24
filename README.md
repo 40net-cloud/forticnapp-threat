@@ -13,6 +13,7 @@ Each scenario is available as a separate Terraform template per cloud. All of th
 | [php2shell](php2shell) | PHP2Shell, CVE-2026-109618 / CVE-2026-109619 | YES | YES | YES |
 | [broccoli2shell](broccoli2shell) | Node2Shell (Brotli), CVE-2026-111497 | YES | YES | YES |
 | [cve-2026-119618](cve-2026-119618) | Apache HTTP/2 RCE (mod_http2), CVE-2026-119618 | YES | YES | YES |
+| [vulnerable-vm](vulnerable-vm) | All scenarios on one host: CVE-2026-109618/109619, CVE-2026-111497, CVE-2026-119618 | YES | YES | YES |
 
 ### Vulnerabilities
 
@@ -27,6 +28,10 @@ Each scenario is available as a separate Terraform template per cloud. All of th
 - **[cve-2026-119618](cve-2026-119618)**
 
   A VM with Apache HTTP Server held at a build affected by CVE-2026-119618 (race condition in `mod_http2`'s `assign_headers()`, remote code execution; affects 2.4.55 through 2.4.70, fixed in 2.4.71). The version is pinned per OS image (Apache 2.4.69 on Debian 13, Apache 2.4.66 on Ubuntu 26.04) and can be overridden with `apache_version`; the pinned build is fetched from a pre-fix snapshot of the distribution archive (`snapshot.debian.org/archive/debian-security` on Debian, `snapshot.ubuntu.com` on Ubuntu), because both distributions shipped fixes on 2026-11-12 (DSA-6620-1 and USN-9090-1). `mod_http2` is enabled and the default site serves cleartext HTTP/2 (`h2c`) on port 80, so demo requests actually traverse the vulnerable module: `curl --http2-prior-knowledge -I http://<host>/`. A small `index.html` reports the running version. A build report is written to `/var/log/apache-report.txt`.
+
+- **[vulnerable-vm](vulnerable-vm)**
+
+  One host carrying every vulnerability: the combined form of the three scenarios above, chosen with the `scenarios` list variable (`["php2shell", "broccoli2shell", "cve-2026-119618"]`, all enabled by default; remove entries to isolate a single vulnerability — the matching firewall ports are only opened then). The install script runs the scenario steps sequentially: Apache once (held at the mod_http2-vulnerable build) with pinned `mod_php` on top, then Node.js and Brotli at the affected builds with the demo service on `demo_port`, then `mod_http2` enabled with `h2c` on port 80. All pins and snapshot sources are identical to the per-CVE templates. One version page reports everything (`index.php` when `php2shell` is enabled, otherwise `index.html`) and one build report is written to `/var/log/vuln-report.txt`.
 
 ### Select your cloud
 
@@ -70,11 +75,29 @@ terraform destroy
 | `prefix` | Name added to every deployed resource |
 | `admin_source_cidr` | Source address allowed to reach SSH and the exposed service. Restrict it to your own public IP, for example `203.0.113.10/32` |
 | `os_image` | `ubuntu-26.04` or `debian-13` (default `debian-13`). More images can be added to `os_images` in `main.tf` |
+| `state_backend` | `local` (default) or `s3`. Terraform cannot use variables in a backend block, so run `scripts/configure-state-backend.sh` after changing it, then `terraform init -reconfigure` (or `-migrate-state`). `state_bucket` and `state_key` are optional |
+| `scenarios` | vulnerable-vm only: which vulnerabilities to install on the one host (default: all three). Remove entries to isolate |
 | `install_forticnapp_agent` | Install the FortiCNAPP Linux agent from the `packages.lacework.net` APT repository (amd64 and arm64 only) |
 | `forticnapp_access_token` | Agent access token, required when the agent is installed. Prefer `export TF_VAR_forticnapp_access_token=<token>` over writing it to a file |
 | `forticnapp_server_url` | FortiCNAPP server URL for your region (default `https://api.fra.lacework.net`). Empty means auto-discover |
 
 Network ranges, VM sizes, tags and the pinned package versions have defaults and are documented in `terraform.tfvars.example`.
+
+## Deploy with GitHub Actions (AWS)
+
+The workflow [`deploy-vulnerable-vm-aws.yml`](.github/workflows/deploy-vulnerable-vm-aws.yml) deploys `vulnerable-vm/aws` and is started manually (Actions tab, *Run workflow*). Choose `plan`, `apply` or `destroy`, the OS image, the allowed source CIDR and whether to install the FortiCNAPP agent.
+
+Add these repository secrets (Settings, Secrets and variables, Actions):
+
+| Secret | Description |
+|--------|-------------|
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Credentials of an IAM user with rights to create the EC2/VPC resources and access to the state bucket |
+| `AWS_REGION` | Region to deploy into, for example `eu-west-1` |
+| `AWS_ACCOUNT_ID` | Target account ID. The run aborts if the credentials belong to another account |
+| `AWS_KEY_NAME` | Name of an existing EC2 key pair in that region |
+| `FORTICNAPP_ACCESS_TOKEN` | Optional, only when installing the agent |
+
+Terraform state is kept in an S3 bucket named `multi-cve-tfstate-<account>-<region>`, so `destroy` works from a later run. Create the bucket once, before the first run, with your own AWS CLI credentials: `scripts/create-tfstate-bucket.sh <region>`. It enables versioning, encryption and blocks public access, and is safe to re-run. The workflow's `state_backend` input selects `s3` (default) or `local`; local state is lost when the runner ends. The job uses the `aws-vulnerable-vm` environment: add required reviewers to it if you want an approval before `apply` or `destroy`.
 
 ## Support
 
