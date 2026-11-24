@@ -9,6 +9,10 @@ on:
         type: choice
         options: [plan, apply, destroy]
         default: plan
+      prefix:
+        description: "Name prefix added to every deployed resource"
+        type: string
+        default: multi-cve
       os_image:
         description: "OS image"
         type: choice
@@ -26,7 +30,7 @@ on:
       install_forticnapp_agent:
         description: "Install the FortiCNAPP agent (needs FORTICNAPP_ACCESS_TOKEN secret)"
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -42,7 +46,7 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
-  TF_VAR_prefix: multi-cve
+  TF_VAR_prefix: ${{ inputs.prefix }}
   TF_VAR_region: ${{ secrets.AWS_REGION }}
   TF_VAR_key_name: ${{ secrets.AWS_KEY_NAME }}
   TF_VAR_os_image: ${{ inputs.os_image }}

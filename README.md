@@ -85,7 +85,7 @@ Network ranges, VM sizes, tags and the pinned package versions have defaults and
 
 ## Deploy with GitHub Actions (AWS)
 
-The workflow [`deploy-vulnerable-vm-aws.yml`](.github/workflows/deploy-vulnerable-vm-aws.yml) deploys `vulnerable-vm/aws` and is started manually (Actions tab, *Run workflow*). Choose `plan`, `apply` or `destroy`, the OS image, the allowed source CIDR and whether to install the FortiCNAPP agent.
+The workflow [`deploy-vulnerable-vm-aws.yml`](.github/workflows/deploy-vulnerable-vm-aws.yml) deploys `vulnerable-vm/aws` and is started manually (Actions tab, *Run workflow*). Choose `plan`, `apply` or `destroy`, the resource name prefix (default `multi-cve`), the OS image, the allowed source CIDR and whether to install the FortiCNAPP agent.
 
 Add these repository secrets (Settings, Secrets and variables, Actions):
 
