@@ -102,7 +102,7 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
      --client-id-list sts.amazonaws.com
    ```
 
-3. Create the IAM role the workflow assumes. The trust policy only accepts runs of this repository that use the `aws-vulnerable-vm` environment:
+3. Create the IAM role the workflow assumes. The trust policy only accepts runs of this repository that use the `forticnapp-threat-aws` environment:
 
    ```sh
    cat > trust.json <<'JSON'
@@ -115,13 +115,13 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
        "Condition": {
          "StringEquals": {
            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-           "token.actions.githubusercontent.com:sub": "repo:<ORG>/<REPO>:environment:aws-vulnerable-vm"
+           "token.actions.githubusercontent.com:sub": "repo:<ORG>/<REPO>:environment:forticnapp-threat-aws"
          }
        }
      }]
    }
    JSON
-   aws iam create-role --role-name github-actions-vulnerable-vm \
+   aws iam create-role --role-name github-actions-forticnapp-threat \
      --assume-role-policy-document file://trust.json
    ```
 
@@ -140,15 +140,15 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
      ]
    }
    JSON
-   aws iam put-role-policy --role-name github-actions-vulnerable-vm \
-     --policy-name vulnerable-vm --policy-document file://permissions.json
+   aws iam put-role-policy --role-name github-actions-forticnapp-threat \
+     --policy-name github-actions-forticnapp-threat --policy-document file://permissions.json
    ```
 
 5. Make sure an EC2 key pair exists in the target region (`aws ec2 create-key-pair` or import your public key) and note its name.
 
 **In GitHub** (repository Settings):
 
-1. Environments: create `aws-vulnerable-vm`. Optionally add required reviewers so `apply` and `destroy` need approval. The environment name must match the `sub` condition in the trust policy.
+1. Environments: create `forticnapp-threat-aws`. Optionally add required reviewers so `apply` and `destroy` need approval. The environment name must match the `sub` condition in the trust policy.
 2. Secrets and variables, Actions: add these repository secrets:
 
 | Secret | Description |

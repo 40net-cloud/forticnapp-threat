@@ -60,8 +60,8 @@ jobs:
   terraform:
     name: Terraform ${{ inputs.action }}
     runs-on: ubuntu-latest
-    # Optional: create a "aws-vulnerable-vm" environment with required reviewers to gate apply/destroy.
-    environment: aws-vulnerable-vm
+    # Optional: create a "forticnapp-threat-aws" environment with required reviewers to gate apply/destroy.
+    environment: forticnapp-threat-aws
     steps:
       - uses: actions/checkout@v4
 
