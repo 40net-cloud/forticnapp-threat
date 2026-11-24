@@ -249,7 +249,7 @@ variable "machine_type" {
 variable "labels" {
   type = map(string)
   default = {
-    project = "multi-cve"
+    project = "forticnapp-threat"
   }
 }
 locals {

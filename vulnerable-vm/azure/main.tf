@@ -252,7 +252,7 @@ variable "vm_size" {
 variable "tags" {
   type = map(string)
   default = {
-    project = "multi-cve"
+    project = "forticnapp-threat"
   }
 }
 
@@ -316,7 +316,7 @@ locals {
 
   customdata = <<-EOT
     #cloud-config
-    fqdn: ${lower(var.prefix)}-multi-cve-vm
+    fqdn: ${lower(var.prefix)}-forticnapp-threat-vm
     package_update: false
     package_upgrade: false
     write_files:

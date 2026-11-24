@@ -47,7 +47,7 @@ variable "state_backend" {
 }
 
 variable "state_bucket" {
-  description = "S3 bucket for state when state_backend = \"s3\". Empty = multi-cve-tfstate-<account>-<region>."
+  description = "S3 bucket for state when state_backend = \"s3\". Empty = forticnapp-threat-tfstate-<account>-<region>."
   type        = string
   default     = ""
 }
@@ -271,7 +271,7 @@ variable "arch" {
 variable "tags" {
   type = map(string)
   default = {
-    project = "multi-cve"
+    project = "forticnapp-threat"
   }
 }
 
@@ -360,7 +360,7 @@ locals {
 
   customdata = <<-EOT
     #cloud-config
-    fqdn: ${lower(var.prefix)}-multi-cve-vm
+    fqdn: ${lower(var.prefix)}-forticnapp-threat-vm
     package_update: false
     package_upgrade: false
     write_files:

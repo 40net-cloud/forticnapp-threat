@@ -1,7 +1,7 @@
 # Copy to terraform.tfvars and adjust. Used by main.tf
 
 # --- Required ---
-prefix   = "multi-cve"           # Name prefix added to each resource
+prefix   = "forticnapp-threat"           # Name prefix added to each resource
 region   = "eu-west-1"           # AWS region
 key_name = "my-ec2-keypair"      # Existing EC2 key pair (SSH login user: ubuntu or admin, depending on os_image)
 
@@ -10,7 +10,7 @@ key_name = "my-ec2-keypair"      # Existing EC2 key pair (SSH login user: ubuntu
 # after changing these, then `terraform init -reconfigure` (or `-migrate-state`).
 # For s3, create the bucket once with scripts/create-tfstate-bucket.sh.
 state_backend = "local"
-# state_bucket = ""                               # Empty = multi-cve-tfstate-<account>-<region>
+# state_bucket = ""                               # Empty = forticnapp-threat-tfstate-<account>-<region>
 # state_key    = "vulnerable-vm/terraform.tfstate"
 
 # --- Access ---
@@ -56,5 +56,5 @@ instance_type = "t3.small"      # Use e.g. "t4g.small" together with arch = "arm
 arch          = "x86_64"        # "x86_64" or "arm64"; must match instance_type
 
 tags = {
-  project = "multi-cve"
+  project = "forticnapp-threat"
 }

@@ -34,7 +34,7 @@ case "$BACKEND" in
     KEY="${KEY:-vulnerable-vm/terraform.tfstate}"
     if [ -z "$BUCKET" ]; then
       ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-      BUCKET="multi-cve-tfstate-${ACCOUNT_ID}-${REGION}"
+      BUCKET="forticnapp-threat-tfstate-${ACCOUNT_ID}-${REGION}"
     fi
     [ -n "$REGION" ] || { echo "Error: region not set (tfvars 'region' or AWS_REGION)" >&2; exit 1; }
     cat > "$OVERRIDE" <<TF

@@ -1,7 +1,7 @@
 # Copy to terraform.tfvars and adjust. Used by main.tf
 
 # --- Required ---
-prefix     = "multi-cve"          # Lowercase letters, digits and hyphens
+prefix     = "forticnapp-threat"          # Lowercase letters, digits and hyphens
 project_id = "my-gcp-project-id"  # Google Cloud project ID
 
 # --- General ---
@@ -50,5 +50,5 @@ subnet       = "172.16.140.0/25"
 machine_type = "e2-small"
 
 labels = {
-  project = "multi-cve"
+  project = "forticnapp-threat"
 }

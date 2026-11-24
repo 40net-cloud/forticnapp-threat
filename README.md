@@ -85,7 +85,7 @@ Network ranges, VM sizes, tags and the pinned package versions have defaults and
 
 ## Deploy with GitHub Actions (AWS)
 
-The workflow [`deploy-vulnerable-vm-aws.yml`](.github/workflows/deploy-vulnerable-vm-aws.yml) deploys `vulnerable-vm/aws` and is started manually (Actions tab, *Run workflow*). Choose `plan`, `apply` or `destroy`, the resource name prefix (default `multi-cve`), the OS image, the allowed source CIDR and whether to install the FortiCNAPP agent.
+The workflow [`deploy-vulnerable-vm-aws.yml`](.github/workflows/deploy-vulnerable-vm-aws.yml) deploys `vulnerable-vm/aws` and is started manually (Actions tab, *Run workflow*). Choose `plan`, `apply` or `destroy`, the resource name prefix (default `forticnapp-threat`), the OS image, the allowed source CIDR and whether to install the FortiCNAPP agent.
 
 The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a short-lived token per run and AWS exchanges it for temporary credentials, so no access keys are stored in GitHub.
 
@@ -134,9 +134,9 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
      "Statement": [
        {"Effect": "Allow", "Action": "ec2:*", "Resource": "*"},
        {"Effect": "Allow", "Action": "s3:ListBucket",
-        "Resource": "arn:aws:s3:::multi-cve-tfstate-<ACCOUNT_ID>-<REGION>"},
+        "Resource": "arn:aws:s3:::forticnapp-threat-tfstate-<ACCOUNT_ID>-<REGION>"},
        {"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
-        "Resource": "arn:aws:s3:::multi-cve-tfstate-<ACCOUNT_ID>-<REGION>/*"}
+        "Resource": "arn:aws:s3:::forticnapp-threat-tfstate-<ACCOUNT_ID>-<REGION>/*"}
      ]
    }
    JSON
@@ -161,7 +161,7 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
 
 3. Actions tab, *Deploy vulnerable-vm (AWS)*, *Run workflow*: start with `plan`, then `apply`.
 
-Terraform state is kept in an S3 bucket named `multi-cve-tfstate-<account>-<region>`, so `destroy` works from a later run. The bucket is created in AWS setup step 1 by `scripts/create-tfstate-bucket.sh`, which enables versioning, encryption and blocks public access, and is safe to re-run. The workflow's `state_backend` input selects `s3` (default) or `local`; local state is lost when the runner ends. 
+Terraform state is kept in an S3 bucket named `forticnapp-threat-tfstate-<account>-<region>`, so `destroy` works from a later run. The bucket is created in AWS setup step 1 by `scripts/create-tfstate-bucket.sh`, which enables versioning, encryption and blocks public access, and is safe to re-run. The workflow's `state_backend` input selects `s3` (default) or `local`; local state is lost when the runner ends. 
 
 ## Support
 

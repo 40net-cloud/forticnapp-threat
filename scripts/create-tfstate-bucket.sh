@@ -4,7 +4,7 @@
 #
 # Usage: scripts/create-tfstate-bucket.sh [region] [bucket-name]
 #   region       defaults to $AWS_REGION, then $AWS_DEFAULT_REGION, then the CLI profile region
-#   bucket-name  defaults to multi-cve-tfstate-<account-id>-<region> (what the GitHub workflow expects)
+#   bucket-name  defaults to forticnapp-threat-tfstate-<account-id>-<region> (what the GitHub workflow expects)
 set -euo pipefail
 
 REGION="${1:-${AWS_REGION:-${AWS_DEFAULT_REGION:-$(aws configure get region || true)}}}"
@@ -14,7 +14,7 @@ if [ -z "$REGION" ]; then
 fi
 
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-BUCKET="${2:-multi-cve-tfstate-${ACCOUNT_ID}-${REGION}}"
+BUCKET="${2:-forticnapp-threat-tfstate-${ACCOUNT_ID}-${REGION}}"
 
 echo "Account: $ACCOUNT_ID"
 echo "Region:  $REGION"

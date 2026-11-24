@@ -12,7 +12,7 @@ on:
       prefix:
         description: "Name prefix added to every deployed resource"
         type: string
-        default: multi-cve
+        default: forticnapp-threat
       os_image:
         description: "OS image"
         type: choice
@@ -54,7 +54,7 @@ env:
   TF_VAR_forticnapp_access_token: ${{ secrets.FORTICNAPP_ACCESS_TOKEN }}
   # State bucket is derived from the account and region; create it with scripts/create-tfstate-bucket.sh
   STATE_BACKEND: ${{ inputs.state_backend }}
-  STATE_BUCKET: multi-cve-tfstate-${{ secrets.AWS_ACCOUNT_ID }}-${{ secrets.AWS_REGION }}
+  STATE_BUCKET: forticnapp-threat-tfstate-${{ secrets.AWS_ACCOUNT_ID }}-${{ secrets.AWS_REGION }}
 
 jobs:
   terraform:

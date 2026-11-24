@@ -1,7 +1,7 @@
 # Copy to terraform.tfvars and adjust. Used by main.tf
 
 # --- Required ---
-prefix              = "multi-cve"                             # Name prefix added to each resource
+prefix              = "forticnapp-threat"                             # Name prefix added to each resource
 subscription_id     = "00000000-0000-0000-0000-000000000000"   # Azure subscription ID
 ssh_public_key_file = "~/.ssh/id_rsa.pub"
 
@@ -51,5 +51,5 @@ subnet  = "172.16.140.0/25"
 vm_size = "Standard_B2s"
 
 tags = {
-  project = "multi-cve"
+  project = "forticnapp-threat"
 }
