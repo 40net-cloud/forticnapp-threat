@@ -91,7 +91,7 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
 
 ### Setup
 
-**In AWS** (once per account; replace `<ACCOUNT_ID>`, `<ORG>/<REPO>` and `<REGION>`):
+**In AWS** (once per account; replace `<ACCOUNT_ID>`, `<ORG>/<REPO>`, `<SUB_PREFIX>` and `<REGION>`):
 
 1. Create the state bucket: `scripts/create-tfstate-bucket.sh <REGION>`.
 2. Create the GitHub OIDC identity provider (skip if the account already has one for `token.actions.githubusercontent.com`):
@@ -102,7 +102,15 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
      --client-id-list sts.amazonaws.com
    ```
 
-3. Create the IAM role the workflow assumes. The trust policy only accepts runs of this repository that use the `forticnapp-threat-aws` environment:
+3. Find the `sub` claim prefix GitHub uses for this repository. By default it is `repo:<ORG>/<REPO>`, but if the organisation or repository enforces immutable subject claims it contains numeric IDs (for example `repo:<ORG>@<ORG_ID>/<REPO>@<REPO_ID>`), and a trust policy using the plain name is refused with "Not authorized to perform sts:AssumeRoleWithWebIdentity":
+
+   ```sh
+   gh api repos/<ORG>/<REPO>/actions/oidc/customization/sub
+   ```
+
+   If `use_immutable_subject` is `true`, use the returned `sub_claim_prefix` as `<SUB_PREFIX>` below. Otherwise use `repo:<ORG>/<REPO>`.
+
+4. Create the IAM role the workflow assumes. The trust policy only accepts runs of this repository that use the `forticnapp-threat-aws` environment:
 
    ```sh
    cat > trust.json <<'JSON'
@@ -115,7 +123,7 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
        "Condition": {
          "StringEquals": {
            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-           "token.actions.githubusercontent.com:sub": "repo:<ORG>/<REPO>:environment:forticnapp-threat-aws"
+           "token.actions.githubusercontent.com:sub": "<SUB_PREFIX>:environment:forticnapp-threat-aws"
          }
        }
      }]
@@ -125,7 +133,7 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
      --assume-role-policy-document file://trust.json
    ```
 
-4. Give the role permission to manage the EC2/VPC resources and to use the state bucket:
+5. Give the role permission to manage the EC2/VPC resources and to use the state bucket:
 
    ```sh
    cat > permissions.json <<'JSON'
@@ -144,7 +152,7 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
      --policy-name github-actions-forticnapp-threat --policy-document file://permissions.json
    ```
 
-5. Make sure an EC2 key pair exists in the target region (`aws ec2 create-key-pair` or import your public key) and note its name.
+6. Make sure an EC2 key pair exists in the target region (`aws ec2 create-key-pair` or import your public key) and note its name.
 
 **In GitHub** (repository Settings):
 
@@ -153,10 +161,10 @@ The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a sh
 
 | Secret | Description |
 |--------|-------------|
-| `AWS_ROLE_ARN` | ARN of the role from step 3, for example `arn:aws:iam::<ACCOUNT_ID>:role/github-actions-vulnerable-vm` |
+| `AWS_ROLE_ARN` | ARN of the role from step 4, for example `arn:aws:iam::<ACCOUNT_ID>:role/github-actions-forticnapp-threat` |
 | `AWS_REGION` | Region to deploy into, for example `eu-west-1` |
 | `AWS_ACCOUNT_ID` | Target account ID, used for the state bucket name. The run aborts if the role belongs to another account |
-| `AWS_KEY_NAME` | Name of the EC2 key pair from step 5 |
+| `AWS_KEY_NAME` | Name of the EC2 key pair from step 6 |
 | `FORTICNAPP_ACCESS_TOKEN` | Optional, only when installing the agent |
 
 3. Actions tab, *Deploy vulnerable-vm (AWS)*, *Run workflow*: start with `plan`, then `apply`.
