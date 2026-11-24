@@ -34,6 +34,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write # request the GitHub OIDC token used to assume the AWS role
 
 # Never run two deployments against the same state at once.
 concurrency:
@@ -43,8 +44,6 @@ concurrency:
 env:
   TF_DIR: vulnerable-vm/aws
   TF_IN_AUTOMATION: "true"
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
   TF_VAR_prefix: ${{ inputs.prefix }}
   TF_VAR_region: ${{ secrets.AWS_REGION }}
@@ -65,6 +64,13 @@ jobs:
     environment: aws-vulnerable-vm
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: gha-vulnerable-vm-${{ github.run_id }}
 
       - name: Verify AWS account
         run: |

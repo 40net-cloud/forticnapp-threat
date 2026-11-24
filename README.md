@@ -87,17 +87,81 @@ Network ranges, VM sizes, tags and the pinned package versions have defaults and
 
 The workflow [`deploy-vulnerable-vm-aws.yml`](.github/workflows/deploy-vulnerable-vm-aws.yml) deploys `vulnerable-vm/aws` and is started manually (Actions tab, *Run workflow*). Choose `plan`, `apply` or `destroy`, the resource name prefix (default `multi-cve`), the OS image, the allowed source CIDR and whether to install the FortiCNAPP agent.
 
-Add these repository secrets (Settings, Secrets and variables, Actions):
+The workflow authenticates to AWS with OpenID Connect (OIDC): GitHub issues a short-lived token per run and AWS exchanges it for temporary credentials, so no access keys are stored in GitHub.
+
+### Setup
+
+**In AWS** (once per account; replace `<ACCOUNT_ID>`, `<ORG>/<REPO>` and `<REGION>`):
+
+1. Create the state bucket: `scripts/create-tfstate-bucket.sh <REGION>`.
+2. Create the GitHub OIDC identity provider (skip if the account already has one for `token.actions.githubusercontent.com`):
+
+   ```sh
+   aws iam create-open-id-connect-provider \
+     --url https://token.actions.githubusercontent.com \
+     --client-id-list sts.amazonaws.com
+   ```
+
+3. Create the IAM role the workflow assumes. The trust policy only accepts runs of this repository that use the `aws-vulnerable-vm` environment:
+
+   ```sh
+   cat > trust.json <<'JSON'
+   {
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Principal": {"Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"},
+       "Action": "sts:AssumeRoleWithWebIdentity",
+       "Condition": {
+         "StringEquals": {
+           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+           "token.actions.githubusercontent.com:sub": "repo:<ORG>/<REPO>:environment:aws-vulnerable-vm"
+         }
+       }
+     }]
+   }
+   JSON
+   aws iam create-role --role-name github-actions-vulnerable-vm \
+     --assume-role-policy-document file://trust.json
+   ```
+
+4. Give the role permission to manage the EC2/VPC resources and to use the state bucket:
+
+   ```sh
+   cat > permissions.json <<'JSON'
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {"Effect": "Allow", "Action": "ec2:*", "Resource": "*"},
+       {"Effect": "Allow", "Action": "s3:ListBucket",
+        "Resource": "arn:aws:s3:::multi-cve-tfstate-<ACCOUNT_ID>-<REGION>"},
+       {"Effect": "Allow", "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+        "Resource": "arn:aws:s3:::multi-cve-tfstate-<ACCOUNT_ID>-<REGION>/*"}
+     ]
+   }
+   JSON
+   aws iam put-role-policy --role-name github-actions-vulnerable-vm \
+     --policy-name vulnerable-vm --policy-document file://permissions.json
+   ```
+
+5. Make sure an EC2 key pair exists in the target region (`aws ec2 create-key-pair` or import your public key) and note its name.
+
+**In GitHub** (repository Settings):
+
+1. Environments: create `aws-vulnerable-vm`. Optionally add required reviewers so `apply` and `destroy` need approval. The environment name must match the `sub` condition in the trust policy.
+2. Secrets and variables, Actions: add these repository secrets:
 
 | Secret | Description |
 |--------|-------------|
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Credentials of an IAM user with rights to create the EC2/VPC resources and access to the state bucket |
+| `AWS_ROLE_ARN` | ARN of the role from step 3, for example `arn:aws:iam::<ACCOUNT_ID>:role/github-actions-vulnerable-vm` |
 | `AWS_REGION` | Region to deploy into, for example `eu-west-1` |
-| `AWS_ACCOUNT_ID` | Target account ID. The run aborts if the credentials belong to another account |
-| `AWS_KEY_NAME` | Name of an existing EC2 key pair in that region |
+| `AWS_ACCOUNT_ID` | Target account ID, used for the state bucket name. The run aborts if the role belongs to another account |
+| `AWS_KEY_NAME` | Name of the EC2 key pair from step 5 |
 | `FORTICNAPP_ACCESS_TOKEN` | Optional, only when installing the agent |
 
-Terraform state is kept in an S3 bucket named `multi-cve-tfstate-<account>-<region>`, so `destroy` works from a later run. Create the bucket once, before the first run, with your own AWS CLI credentials: `scripts/create-tfstate-bucket.sh <region>`. It enables versioning, encryption and blocks public access, and is safe to re-run. The workflow's `state_backend` input selects `s3` (default) or `local`; local state is lost when the runner ends. The job uses the `aws-vulnerable-vm` environment: add required reviewers to it if you want an approval before `apply` or `destroy`.
+3. Actions tab, *Deploy vulnerable-vm (AWS)*, *Run workflow*: start with `plan`, then `apply`.
+
+Terraform state is kept in an S3 bucket named `multi-cve-tfstate-<account>-<region>`, so `destroy` works from a later run. The bucket is created in AWS setup step 1 by `scripts/create-tfstate-bucket.sh`, which enables versioning, encryption and blocks public access, and is safe to re-run. The workflow's `state_backend` input selects `s3` (default) or `local`; local state is lost when the runner ends. 
 
 ## Support
 
