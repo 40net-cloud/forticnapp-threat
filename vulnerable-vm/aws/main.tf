@@ -788,7 +788,7 @@ resource "aws_instance" "lnxvm" {
   root_block_device {
     volume_type = "gp3"
     volume_size = 20
-    encrypted   = true
+    encrypted   = false
   }
 
   primary_network_interface {
