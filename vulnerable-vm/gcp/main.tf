@@ -1,7 +1,7 @@
 ##############################################################################################################
 #
 # Ubuntu / Debian instance combining all demo vulnerabilities selectable via `scenarios` (OS image selectable
-# via terraform.tfvars): PHP2Shell, Node2Shell (Brotli) and mod_http2 RCE — one host, one agent, every CVE.
+# via terraform.tfvars): PHP2Shell, Node2Shell (Brotli), mod_http2 RCE and Java4Shell — one host, one agent, every CVE.
 # Terraform deployment template for Google Cloud
 #
 ##############################################################################################################
@@ -66,16 +66,16 @@ variable "admin_source_cidr" {
 ##############################################################################################################
 
 variable "scenarios" {
-  description = "Which vulnerabilities to install on the one host. \"php2shell\" (PHP2Shell), \"broccoli2shell\" (Node2Shell/Brotli) and \"cve-2026-119618\" (mod_http2 RCE). All three by default: a single host carrying every vulnerability."
+  description = "Which vulnerabilities to install on the one host. \"php2shell\" (PHP2Shell), \"broccoli2shell\" (Node2Shell/Brotli) \"cve-2026-119618\" (mod_http2 RCE) and \"cve-2026-114938\" (Java4Shell, OpenJDK Base64 decoder heap overflow). All four by default: a single host carrying every vulnerability."
   type        = list(string)
-  default     = ["php2shell", "broccoli2shell", "cve-2026-119618"]
+  default     = ["php2shell", "broccoli2shell", "cve-2026-119618", "cve-2026-114938"]
 
   validation {
     condition = (
       length(var.scenarios) > 0 &&
-      alltrue([for s in var.scenarios : contains(["php2shell", "broccoli2shell", "cve-2026-119618"], s)])
+      alltrue([for s in var.scenarios : contains(["php2shell", "broccoli2shell", "cve-2026-119618", "cve-2026-114938"], s)])
     )
-    error_message = "scenarios must be a non-empty list of: \"php2shell\", \"broccoli2shell\", \"cve-2026-119618\"."
+    error_message = "scenarios must be a non-empty list of: \"php2shell\", \"broccoli2shell\", \"cve-2026-119618\", \"cve-2026-114938\"."
   }
 }
 
@@ -101,6 +101,9 @@ variable "os_images" {
     apache_version            = string # exact apache2 build to pin (vulnerable)
     apache_snapshot_url       = string # APT line with %s = timestamp
     apache_snapshot_timestamp = string
+    java_version              = string # exact openjdk-21 build to pin (vulnerable)
+    java_snapshot_url         = string # APT line with %s = timestamp
+    java_snapshot_timestamp   = string
   }))
   default = [
     {
@@ -123,6 +126,10 @@ variable "os_images" {
       apache_version            = "2.4.66-2ubuntu2.7"
       apache_snapshot_url       = "https://snapshot.ubuntu.com/ubuntu/%s resolute-security main"
       apache_snapshot_timestamp = "20261111T000000Z"
+      # Last resolute-security build before USN-9155-1 (2026-11-18); fixed in 21.0.13.1+2-1~26.04.1
+      java_version            = "21.0.13.0.3+1-1~26.04.1"
+      java_snapshot_url       = "https://snapshot.ubuntu.com/ubuntu/%s resolute-security main universe"
+      java_snapshot_timestamp = "20261112T000000Z"
     },
     {
       name                      = "debian-13"
@@ -140,6 +147,9 @@ variable "os_images" {
       apache_version            = "2.4.69-1~deb13u1" # Fixed in 2.4.71-1~deb13u1 (DSA-6620-1)
       apache_snapshot_url       = "http://snapshot.debian.org/archive/debian-security/%s trixie-security main"
       apache_snapshot_timestamp = "20261111T000312Z"
+      java_version              = "21.0.13+9-1~deb13u2" # Debian fix: 21.0.13.1+2-1~deb13u1 (DSA-6639-1)
+      java_snapshot_url         = "http://snapshot.debian.org/archive/debian-security/%s trixie-security main"
+      java_snapshot_timestamp   = "20261111T000312Z"
     },
   ]
 
@@ -201,6 +211,23 @@ variable "apache_snapshot_timestamp" {
   default     = null
 }
 
+variable "java_version" {
+  description = "Exact openjdk-21 build to install and hold (openjdk-21-jre-headless and openjdk-21-jdk-headless). Leave null for the OS image default; must be below the CVE-2026-114938 fix 21.0.13.1."
+  type        = string
+  default     = null
+}
+
+variable "java_snapshot_timestamp" {
+  description = "Snapshot archive timestamp carrying the pinned openjdk-21 build. Leave null for the OS image default."
+  type        = string
+  default     = null
+}
+
+variable "java_port" {
+  description = "TCP port of the Java4Shell demo service (cve-2026-114938 scenario), reachable from admin_source_cidr"
+  type        = number
+  default     = 8081
+}
 variable "demo_port" {
   description = "TCP port of the Brotli demo service, reachable from admin_source_cidr"
   type        = number
@@ -259,6 +286,7 @@ locals {
   do_php    = contains(var.scenarios, "php2shell")
   do_brotli = contains(var.scenarios, "broccoli2shell")
   do_http2  = contains(var.scenarios, "cve-2026-119618")
+  do_java   = contains(var.scenarios, "cve-2026-114938")
   do_apache = local.do_php || local.do_http2
 
   is_debian = local.image.family == "debian"
@@ -268,6 +296,7 @@ locals {
   f_php    = tostring(local.do_php)
   f_brotli = tostring(local.do_brotli)
   f_http2  = tostring(local.do_http2)
+  f_java   = tostring(local.do_java)
   f_apache = tostring(local.do_apache)
   f_debian = tostring(local.is_debian)
 
@@ -283,6 +312,9 @@ locals {
   apache_version       = coalesce(var.apache_version, local.image.apache_version)
   apache_snapshot_ts   = coalesce(var.apache_snapshot_timestamp, local.image.apache_snapshot_timestamp)
   apache_snapshot_line = format(local.image.apache_snapshot_url, local.apache_snapshot_ts)
+  java_version         = coalesce(var.java_version, local.image.java_version)
+  java_snapshot_ts     = coalesce(var.java_snapshot_timestamp, local.image.java_snapshot_timestamp)
+  java_snapshot_line   = format(local.image.java_snapshot_url, local.java_snapshot_ts)
 
   php_packages = concat(
     ["php${local.image.php_series}", "php${local.image.php_series}-cli", "php${local.image.php_series}-common", "php${local.image.php_series}-readline"],
@@ -293,7 +325,10 @@ locals {
   # apache2 depends on apache2-bin, apache2-data and apache2-utils at the exact same version
   apache_packages = ["apache2", "apache2-bin", "apache2-data", "apache2-utils"]
   apache_pinned   = [for p in local.apache_packages : "${p}=${local.apache_version}"]
-  node_packages   = [local.image.libnode_pkg, "nodejs", "libbrotli1", "brotli"]
+  # jdk-headless provides javac (to build the demo service) and depends on jre-headless at the exact same version
+  java_packages = ["openjdk-21-jre-headless", "openjdk-21-jdk-headless"]
+  java_pinned   = [for p in local.java_packages : "${p}=${local.java_version}"]
+  node_packages = [local.image.libnode_pkg, "nodejs", "libbrotli1", "brotli"]
   node_pinned = [
     "nodejs=${local.node_version}",
     "${local.image.libnode_pkg}=${local.node_version}",
@@ -375,12 +410,15 @@ locals {
     DO_BROTLI="${local.f_brotli}"
     DO_HTTP2="${local.f_http2}"
     DO_APACHE="${local.f_apache}"
+    DO_JAVA="${local.f_java}"
     PHP_SERIES="${local.php_series}"
     PHP_VER="${local.php_version}"
     NODE_VER="${local.node_version}"
     BROTLI_VER="${local.brotli_version}"
     APACHE_VER="${local.apache_version}"
+    JAVA_VER="${local.java_version}"
     DEMO_PORT="${var.demo_port}"
+    JAVA_PORT="${var.java_port}"
 
     # Avoid dpkg lock contention with the automatic updater
     systemctl stop unattended-upgrades.service || true
@@ -512,6 +550,122 @@ locals {
       systemctl enable --now node2shell.service
     fi
 
+    # --- Scenario: cve-2026-114938 (Java4Shell: OpenJDK Base64 decoder heap overflow, fixed in 21.0.13.1) ---
+    if [ "$DO_JAVA" = "true" ]; then
+      echo "deb [check-valid-until=no trusted=yes] ${local.java_snapshot_line}" \
+        > /etc/apt/sources.list.d/snapshot-java.list
+      $APT update
+      $APT --allow-downgrades install ${join(" ", local.java_pinned)}
+      rm -f /etc/apt/sources.list.d/snapshot-java.list
+      $APT update
+      apt-mark hold ${join(" ", local.java_packages)}
+
+      # Anything at or above the first fixed upstream release (21.0.13.1) means the pin failed
+      dpkg --compare-versions "$(dpkg-query -W -f='$${Version}' openjdk-21-jre-headless)" lt 21.0.13.1
+
+      # Demo service: decodes Base64 request bodies and Basic-auth headers with java.util.Base64 (the CVE-2026-114938 code path)
+      id -u java4shell > /dev/null 2>&1 || useradd --system --home /opt/java4shell --shell /usr/sbin/nologin java4shell
+      install -d -o java4shell -g java4shell /opt/java4shell
+
+    cat > /opt/java4shell/Server.java <<'JAVAEOF'
+    import com.sun.net.httpserver.HttpServer;
+    import java.io.ByteArrayOutputStream;
+    import java.net.InetSocketAddress;
+    import java.nio.charset.StandardCharsets;
+    import java.nio.file.Files;
+    import java.nio.file.Path;
+    import java.util.Base64;
+
+    public class Server {
+      static void reply(com.sun.net.httpserver.HttpExchange ex, int code, String body) throws java.io.IOException {
+        byte[] b = body.getBytes(StandardCharsets.UTF_8);
+        ex.getResponseHeaders().add("Content-Type", "text/plain");
+        ex.sendResponseHeaders(code, b.length);
+        ex.getResponseBody().write(b);
+        ex.close();
+      }
+
+      public static void main(String[] args) throws Exception {
+        int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8081"));
+        HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
+
+        server.createContext("/", ex -> {
+          String cpu = "unknown";
+          try {
+            for (String l : Files.readAllLines(Path.of("/proc/cpuinfo"))) {
+              if (l.startsWith("flags")) {
+                cpu = l.contains("avx512_vbmi") ? "avx512_vbmi present (vulnerable code path reachable)"
+                                                : "no avx512_vbmi (vulnerable code path NOT reachable on this CPU)";
+                break;
+              }
+            }
+          } catch (Exception e) { }
+          reply(ex, 200,
+            "Java4Shell demo host (CVE-2026-114938)\n" +
+            "java:  " + System.getProperty("java.runtime.version") + "\n" +
+            "cpu:   " + cpu + "\n" +
+            "usage: curl -X POST --data-binary @body.b64 http://<host>:" + port + "/decode\n" +
+            "       curl -H 'Authorization: Basic <base64>' http://<host>:" + port + "/auth\n");
+        });
+
+        // Base64-decodes the request body with java.util.Base64 (basic decoder)
+        server.createContext("/decode", ex -> {
+          try {
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            ex.getRequestBody().transferTo(buf);
+            byte[] out = Base64.getDecoder().decode(buf.toString(StandardCharsets.US_ASCII).trim());
+            reply(ex, 200, "decoded " + out.length + " bytes\n");
+          } catch (IllegalArgumentException e) {
+            reply(ex, 400, "error: " + e.getMessage() + "\n");
+          }
+        });
+
+        // HTTP Basic authentication: the Authorization header is Base64-decoded before any credential check
+        server.createContext("/auth", ex -> {
+          String h = ex.getRequestHeaders().getFirst("Authorization");
+          if (h == null || !h.startsWith("Basic ")) {
+            ex.getResponseHeaders().add("WWW-Authenticate", "Basic realm=\"java4shell\"");
+            reply(ex, 401, "unauthorized\n");
+            return;
+          }
+          try {
+            String cred = new String(Base64.getDecoder().decode(h.substring(6).trim()), StandardCharsets.UTF_8);
+            reply(ex, 401, "unauthorized (" + cred.length() + " chars decoded)\n");
+          } catch (IllegalArgumentException e) {
+            reply(ex, 400, "error: " + e.getMessage() + "\n");
+          }
+        });
+
+        server.start();
+        System.out.println("listening on " + port);
+      }
+    }
+    JAVAEOF
+      javac -d /opt/java4shell /opt/java4shell/Server.java
+      chown -R java4shell:java4shell /opt/java4shell
+
+    cat > /etc/systemd/system/java4shell.service <<'UNITEOF'
+    [Unit]
+    Description=Java4Shell demo service (CVE-2026-114938 test target)
+    After=network-online.target
+
+    [Service]
+    Type=simple
+    User=java4shell
+    Group=java4shell
+    WorkingDirectory=/opt/java4shell
+    Environment=PORT=${var.java_port}
+    ExecStart=/usr/bin/java -cp /opt/java4shell Server
+    Restart=always
+    RestartSec=2
+
+    [Install]
+    WantedBy=multi-user.target
+    UNITEOF
+
+      systemctl daemon-reload
+      systemctl enable --now java4shell.service
+    fi
     # --- Version-reporting page + Apache restart (Apache only exists when php or http2 is on) ---
     if [ "$DO_APACHE" = "true" ]; then
       APACHE_PKG_VER=$(dpkg-query -W -f='$${Version}' apache2-bin 2>/dev/null 2>&1 || echo n/a)
@@ -582,7 +736,7 @@ locals {
       echo "== scenarios enabled: $SCENARIOS"
       echo
       echo "== dpkg"
-      dpkg -l | grep -E '^(ii|hi)\s+(apache2|php8|nodejs|libnode|libbrotli|brotli)' || true
+      dpkg -l | grep -E '^(ii|hi)\s+(apache2|php8|nodejs|libnode|libbrotli|brotli|openjdk)' || true
       echo
       echo "== httpd"
       apache2 -v 2>/dev/null || true
@@ -597,10 +751,15 @@ locals {
       node --version 2>/dev/null || true
       dpkg-query -W -f='$${Version}\n' libbrotli1 2>/dev/null || true
       echo
+      echo "== java"
+      java -version 2>&1 | head -1 || true
+      grep -o -m1 avx512_vbmi /proc/cpuinfo || echo "no avx512_vbmi on this CPU: CVE-2026-114938 is present but not exploitable here"
+      echo
       echo "== pins (vulnerable builds)"
       echo "apache2-bin  $APACHE_VER   (CVE-2026-119618 range 2.4.55-2.4.70; fixes: Debian 2.4.71-1~deb13u1 / DSA-6620-1, Ubuntu 2.4.66-2ubuntu2.8 / USN-9090-1)"
       echo "php          $PHP_VER       (CVE-2026-109618/109619; PHP must be <= 8.5.11)"
       echo "node/brotli  nodejs=$NODE_VER libbrotli1/brotli=$BROTLI_VER   (CVE-2026-111497; Debian fix 1.1.0-2+deb13u1, Ubuntu fix 1.2.0-3ubuntu0.1)"
+      echo "java         openjdk-21=$JAVA_VER   (CVE-2026-114938 / Java4Shell; fixed upstream in 21.0.13.1, Debian 21.0.13.1+2-1~deb13u1 / DSA-6639-1, Ubuntu 21.0.13.1+2-1~26.04.1 / USN-9155-1)"
       echo
       echo "== holds"
       apt-mark showhold
@@ -608,6 +767,8 @@ locals {
       echo "== checks"
       echo "curl --http2-prior-knowledge -I http://<host>/          (when cve-2026-119618 is enabled)"
       echo "curl -X POST --data-binary @payload.br -H 'Content-Encoding: br' http://<host>:$DEMO_PORT/inflate   (when broccoli2shell is enabled)"
+      echo "curl -X POST --data-binary @body.b64 http://<host>:$JAVA_PORT/decode   (when cve-2026-114938 is enabled)"
+      echo "grep -o -m1 avx512_vbmi /proc/cpuinfo   (the vulnerable Base64 path is only reachable on CPUs with AVX-512 VBMI)"
     } > /var/log/vuln-report.txt
 
     touch /var/lib/install-vulns.done
@@ -672,6 +833,22 @@ resource "google_compute_firewall" "lnxdemoin" {
   allow {
     protocol = "tcp"
     ports    = [tostring(var.demo_port)]
+  }
+}
+
+# Java4Shell demo port only when the cve-2026-114938 scenario is enabled
+resource "google_compute_firewall" "lnxjavain" {
+  count = local.do_java ? 1 : 0
+
+  name          = "${var.prefix}-allow-java"
+  network       = google_compute_network.vpc.name
+  direction     = "INGRESS"
+  source_ranges = [var.admin_source_cidr]
+  target_tags   = ["${var.prefix}-lnx"]
+
+  allow {
+    protocol = "tcp"
+    ports    = [tostring(var.java_port)]
   }
 }
 
@@ -764,6 +941,11 @@ output "http_url" {
 output "demo_url" {
   description = "Version page of the Brotli demo service (needs the broccoli2shell scenario)"
   value       = local.do_brotli ? "http://${google_compute_address.lnxpip.address}:${var.demo_port}/" : ""
+}
+
+output "java_url" {
+  description = "Version page of the Java4Shell demo service (needs the cve-2026-114938 scenario)"
+  value       = local.do_java ? "http://${google_compute_address.lnxpip.address}:${var.java_port}/" : ""
 }
 
 output "verify_command" {

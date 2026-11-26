@@ -6,11 +6,12 @@ subscription_id     = "00000000-0000-0000-0000-000000000000"   # Azure subscript
 ssh_public_key_file = "~/.ssh/id_rsa.pub"
 
 # --- Scenario selection: which vulnerabilities this ONE host gets ---
-# All three by default -> a single host carrying every vulnerability the repo demos:
+# All four by default -> a single host carrying every vulnerability the repo demos:
 #   php2shell       PHP2Shell (CVE-2026-109618 / CVE-2026-109619)
 #   broccoli2shell  Node2Shell / Brotli (CVE-2026-111497)
 #   cve-2026-119618 Apache mod_http2 RCE (CVE-2026-119618)
-scenarios = ["php2shell", "broccoli2shell", "cve-2026-119618"]
+#   cve-2026-114938 Java4Shell, OpenJDK 21 Base64 decoder heap overflow (CVE-2026-114938)
+scenarios = ["php2shell", "broccoli2shell", "cve-2026-119618", "cve-2026-114938"]
 
 # --- OS image: select which entry of os_images to deploy ---
 # Default list: "ubuntu-26.04" (PHP 8.5, Node 22, Apache 2.4.66) or "debian-13" (PHP 8.4, Node 20, Apache 2.4.69)
@@ -36,7 +37,10 @@ admin_source_cidr = "203.0.113.10/32"
 # node_snapshot_timestamp = "20261101T000000Z"
 # apache_version          = "2.4.69-1~deb13u1"       # must stay <= 2.4.70 (CVE-2026-119618)
 # apache_snapshot_timestamp = "20261111T000312Z"
+# java_version            = "21.0.13+9-1~deb13u2"    # openjdk-21, must stay below 21.0.13.1 (CVE-2026-114938)
+# java_snapshot_timestamp = "20261111T000312Z"
 demo_port = 3000   # Reachable from admin_source_cidr only (broccoli2shell scenario)
+java_port = 8081   # Reachable from admin_source_cidr only (cve-2026-114938 scenario)
 
 # --- FortiCNAPP agent ---
 install_forticnapp_agent = false
@@ -49,6 +53,9 @@ forticnapp_server_url = "https://api.fra.lacework.net"   # Empty string = auto-d
 vnet    = "172.16.140.0/24"
 subnet  = "172.16.140.0/25"
 vm_size = "Standard_B2s"
+# NOTE: CVE-2026-114938 is only reachable on x86-64 CPUs with AVX-512 VBMI (Ice Lake / Sapphire Rapids or newer, AMD Zen 4+).
+# The default size above has no AVX-512 VBMI: FortiCNAPP still reports the vulnerable package, but the bug cannot be triggered.
+# For an exploitable host pick a size with AVX-512 VBMI, see the README.
 
 tags = {
   project = "forticnapp-threat"
